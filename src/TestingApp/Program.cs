@@ -1,1 +1,117 @@
-﻿
+﻿using HidSharp;
+using Serilog;
+using System.Diagnostics;
+using TestingApp;
+
+var logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .WriteTo.File($"log_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt")
+    .WriteTo.Console()
+    .CreateLogger();
+
+await Run(logger);
+
+static async Task Run(ILogger logger)
+{
+    IRazerPwmFanController? device = null;
+
+    try
+    {
+        var devices = DeviceList.Local
+            .GetHidDevices(vendorID: 0x1532, productID: 0x0f3c)
+            .ToList();
+
+        foreach (var d in devices)
+        {
+            logger.Information("Found device: {devicePath} ({maxInputReportLength}, {maxOutputReportLength})", d.DevicePath, d.GetMaxInputReportLength(), d.GetMaxOutputReportLength());
+        }
+
+        if (!Debugger.IsAttached)
+        {
+            device = new RazerPwmFanController(new HidSharpDeviceProxy(devices.First()), logger); 
+        }
+        else
+        {
+            device = new MockRazerPwmFanController(logger);
+        }
+
+        if (!device.Connect())
+        {
+            logger.Error("Device failed to connect - exiting");
+            return;
+        }
+
+        await RunInvestigation(device, logger);
+    }
+    catch (Exception ex)
+    {
+        logger.Error(ex, "Top-level exception occurred - exiting");
+    }
+    finally
+    {
+        device?.Disconnect();
+    }
+}
+
+static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger)
+{
+    logger.Information("Starting investigation - THIS WILL TAKE A WHILE");
+    logger.Information("THIS WILL TEST FAN 1 (ONE) ONLY - ENSURE FAN PORT 1 IS CONNECTED");
+
+    var channelPowerRegistersToTest = Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte);
+    var channelModesToTest = Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte);
+
+    await SetFan1ToZeroRpm();
+    var startRpm = device.GetChannelSpeed(0);
+    logger.Information("Fan 1 RPM: {rpm}", startRpm);
+
+    var end = false;
+
+    foreach (var channelMode in channelModesToTest)
+    {
+        if (channelMode == 0x04)
+        {
+            // 0x04 is manual rpm - skip
+            continue;
+        }
+
+        device.SetChannelMode(0, channelMode);
+
+        foreach (var channelPowerRegister in channelPowerRegistersToTest)
+        {
+            logger.Information("Trying to set Fan 1 to 100% (mode={mode},register={register})", channelMode.ToString("X2"), channelPowerRegister.ToString("X2"));
+            device.SetChannelPower(0, 100, channelPowerRegister);
+            await Task.Delay(2000);
+            var currentRpm = device.GetChannelSpeed(0);
+            logger.Information("Fan 1 RPM: {rpm}", currentRpm);
+            if (currentRpm - startRpm > 50)
+            {
+                logger.Information("POSSIBLE");
+                await Task.Delay(2000);
+                currentRpm = device.GetChannelSpeed(0);
+                logger.Information("Fan 1 RPM: {rpm}", currentRpm);
+                if (currentRpm - startRpm > 250)
+                {
+                    logger.Information("PROBABLE - ending investigation!");
+                    end = true;
+                    break;
+                }
+            }
+        }
+
+        if (end)
+        {
+            break;
+        }
+    }
+
+    logger.Information("Investigation completed");
+
+    async Task SetFan1ToZeroRpm()
+    {
+        logger.Information("Setting Fan 1 to 0 RPM...");
+        device.SetChannelMode(0, 0x04); // manual rpm
+        device.SetChannelPower(0, 0, 0x0d); // 0 rpm
+        await Task.Delay(10000);
+    }
+}
