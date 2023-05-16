@@ -23,12 +23,14 @@ static async Task Run(ILogger logger)
 
         foreach (var d in devices)
         {
-            logger.Information("Found device: {devicePath} ({maxInputReportLength}, {maxOutputReportLength})", d.DevicePath, d.GetMaxInputReportLength(), d.GetMaxOutputReportLength());
+            logger.Information("Found device: {devicePath} ({maxInputReportLength}, {maxOutputReportLength}, {maxFeatureReportLength})", d.DevicePath, d.GetMaxInputReportLength(), d.GetMaxOutputReportLength(), d.GetMaxFeatureReportLength());
         }
 
         if (!Debugger.IsAttached)
         {
-            device = new RazerPwmFanController(new HidSharpDeviceProxy(devices.First()), logger); 
+            var firstValidDevice = devices.First(x => x.GetMaxFeatureReportLength() > 0);
+            logger.Information("Using device: {devicePath}", firstValidDevice.DevicePath);
+            device = new RazerPwmFanController(new HidSharpDeviceProxy(firstValidDevice), logger); 
         }
         else
         {

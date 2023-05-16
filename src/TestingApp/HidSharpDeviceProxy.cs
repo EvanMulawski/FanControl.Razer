@@ -37,15 +37,15 @@ internal class HidSharpDeviceProxy
     {
         ThrowIfNotReady();
 
-        _stream?.Read(buffer, 0, buffer.Length);
+        _stream?.GetFeature(buffer, 0, buffer.Length);
     }
 
     public void Write(byte[] buffer)
     {
         ThrowIfNotReady();
 
-        ClearEnqueuedReports();
-        _stream?.Write(buffer, 0, buffer.Length);
+        //ClearEnqueuedReports();
+        _stream?.SetFeature(buffer, 0, buffer.Length);
     }
 
     public void ClearEnqueuedReports()

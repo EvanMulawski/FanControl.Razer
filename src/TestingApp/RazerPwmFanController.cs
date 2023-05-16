@@ -89,7 +89,7 @@ internal sealed class RazerPwmFanController : IRazerPwmFanController
 
     public void SetChannelMode(int channel, byte mode)
     {
-        Log(nameof(SetChannelMode), $"{channel} ({mode})");
+        Log(nameof(SetChannelMode), $"{channel} ({mode:X2})");
 
         var request = CreateRequest();
         request[2] = 0x1f;
@@ -126,7 +126,7 @@ internal sealed class RazerPwmFanController : IRazerPwmFanController
         Log(nameof(WriteAndRead), $"{description} WRITE: ", buffer);
         _device.Write(buffer);
         _device.Read(response);
-        Log(nameof(WriteAndRead), $"{description} READ:  ", buffer);
+        Log(nameof(WriteAndRead), $"{description} READ:  ", response);
 
         return response;
     }
