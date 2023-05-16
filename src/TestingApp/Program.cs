@@ -60,7 +60,7 @@ static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger
     logger.Information("Starting investigation - THIS WILL TAKE A WHILE");
     logger.Information("THIS WILL TEST FAN 1 (ONE) ONLY - ENSURE FAN PORT 1 IS CONNECTED");
 
-    var channelPowerRegistersToTest = Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte);
+    var channelPowerRegistersToTest = new byte[] { 0x83 }.Union(Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte));
 
     await SetFan1ToZeroRpm();
     var startRpm = device.GetChannelSpeed(0);
