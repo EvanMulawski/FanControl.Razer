@@ -73,7 +73,8 @@ internal sealed class RazerPwmFanController : IRazerPwmFanController
 
     public void SetChannelPower(int channel, int power, byte registerToSet)
     {
-        Log(nameof(SetChannelPower), $"{channel} ({power}%)");
+        var powerFractionalByte = Utils.ToFractionalByte(power);
+        Log(nameof(SetChannelPower), $"ch={channel} p={power}% pfb={powerFractionalByte:X2}");
 
         var request = CreateRequest();
         request[2] = 0x1f;
@@ -82,14 +83,14 @@ internal sealed class RazerPwmFanController : IRazerPwmFanController
         request[8] = registerToSet; // for invest.
         request[9] = 0x01;
         request[10] = (byte)(0x05 + channel);
-        request[11] = (byte)power;
+        request[11] = powerFractionalByte;
 
         WriteAndRead(request, nameof(SetChannelPower));
     }
 
     public void SetChannelMode(int channel, byte mode)
     {
-        Log(nameof(SetChannelMode), $"{channel} ({mode:X2})");
+        Log(nameof(SetChannelMode), $"ch={channel} m={mode:X2}");
 
         var request = CreateRequest();
         request[2] = 0x1f;

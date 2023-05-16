@@ -61,49 +61,32 @@ static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger
     logger.Information("THIS WILL TEST FAN 1 (ONE) ONLY - ENSURE FAN PORT 1 IS CONNECTED");
 
     var channelPowerRegistersToTest = Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte);
-    var channelModesToTest = Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte);
 
     await SetFan1ToZeroRpm();
     var startRpm = device.GetChannelSpeed(0);
     logger.Information("Fan 1 RPM: {rpm}", startRpm);
 
-    var end = false;
+    byte channelMode = 0x05;
+    device.SetChannelMode(0, channelMode);
 
-    foreach (var channelMode in channelModesToTest)
+    foreach (var channelPowerRegister in channelPowerRegistersToTest)
     {
-        if (channelMode == 0x04)
+        logger.Information("Trying to set Fan 1 to 100% (mode={mode},register={register})", channelMode.ToString("X2"), channelPowerRegister.ToString("X2"));
+        device.SetChannelPower(0, 100, channelPowerRegister);
+        await Task.Delay(2000);
+        var currentRpm = device.GetChannelSpeed(0);
+        logger.Information("Fan 1 RPM: {rpm}", currentRpm);
+        if (currentRpm - startRpm > 50)
         {
-            // 0x04 is manual rpm - skip
-            continue;
-        }
-
-        device.SetChannelMode(0, channelMode);
-
-        foreach (var channelPowerRegister in channelPowerRegistersToTest)
-        {
-            logger.Information("Trying to set Fan 1 to 100% (mode={mode},register={register})", channelMode.ToString("X2"), channelPowerRegister.ToString("X2"));
-            device.SetChannelPower(0, 100, channelPowerRegister);
+            logger.Information("POSSIBLE");
             await Task.Delay(2000);
-            var currentRpm = device.GetChannelSpeed(0);
+            currentRpm = device.GetChannelSpeed(0);
             logger.Information("Fan 1 RPM: {rpm}", currentRpm);
-            if (currentRpm - startRpm > 50)
+            if (currentRpm - startRpm > 250)
             {
-                logger.Information("POSSIBLE");
-                await Task.Delay(2000);
-                currentRpm = device.GetChannelSpeed(0);
-                logger.Information("Fan 1 RPM: {rpm}", currentRpm);
-                if (currentRpm - startRpm > 250)
-                {
-                    logger.Information("PROBABLE - ending investigation!");
-                    end = true;
-                    break;
-                }
+                logger.Information("PROBABLE");
             }
-        }
-
-        if (end)
-        {
-            break;
+            await SetFan1ToZeroRpm();
         }
     }
 
