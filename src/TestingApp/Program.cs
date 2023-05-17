@@ -60,18 +60,16 @@ static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger
     logger.Information("Starting investigation - THIS WILL TAKE A WHILE");
     logger.Information("THIS WILL TEST FAN 1 (ONE) ONLY - ENSURE FAN PORT 1 IS CONNECTED");
 
-    var channelPowerRegistersToTest = new byte[] { 0x83 }.Union(Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte));
+    var channelPowerRegistersToTest = Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte);
 
+    device.SetChannelMode(0, 0x04); // manual
     await SetFan1ToZeroRpm();
     var startRpm = device.GetChannelSpeed(0);
     logger.Information("Fan 1 RPM: {rpm}", startRpm);
 
-    byte channelMode = 0x05;
-    device.SetChannelMode(0, channelMode);
-
     foreach (var channelPowerRegister in channelPowerRegistersToTest)
     {
-        logger.Information("Trying to set Fan 1 to 100% (mode={mode},register={register})", channelMode.ToString("X2"), channelPowerRegister.ToString("X2"));
+        logger.Information("Trying to set Fan 1 to 100% (register={register})", channelPowerRegister.ToString("X2"));
         device.SetChannelPower(0, 100, channelPowerRegister);
         await Task.Delay(2000);
         var currentRpm = device.GetChannelSpeed(0);
@@ -87,7 +85,6 @@ static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger
                 logger.Information("PROBABLE");
             }
             await SetFan1ToZeroRpm();
-            device.SetChannelMode(0, channelMode);
         }
     }
 
@@ -96,7 +93,6 @@ static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger
     async Task SetFan1ToZeroRpm()
     {
         logger.Information("Setting Fan 1 to 0 RPM...");
-        device.SetChannelMode(0, 0x04); // manual rpm
         device.SetChannelPower(0, 0, 0x0d); // 0 rpm
         await Task.Delay(10000);
     }
