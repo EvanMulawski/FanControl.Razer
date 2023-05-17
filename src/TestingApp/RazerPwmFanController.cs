@@ -78,7 +78,7 @@ internal sealed class RazerPwmFanController : IRazerPwmFanController
 
         var request = CreateRequest();
         request[2] = 0x1f;
-        request[6] = 0x06;
+        request[6] = 0x03;
         request[7] = 0x0d;
         request[8] = registerToSet; // for invest.
         request[9] = 0x01;

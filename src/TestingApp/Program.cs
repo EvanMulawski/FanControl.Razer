@@ -30,7 +30,7 @@ static async Task Run(ILogger logger)
         {
             var firstValidDevice = devices.First(x => x.GetMaxFeatureReportLength() > 0);
             logger.Information("Using device: {devicePath}", firstValidDevice.DevicePath);
-            device = new RazerPwmFanController(new HidSharpDeviceProxy(firstValidDevice), logger); 
+            device = new RazerPwmFanController(new HidSharpDeviceProxy(firstValidDevice), logger);
         }
         else
         {
@@ -60,7 +60,8 @@ static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger
     logger.Information("Starting investigation - THIS WILL TAKE A WHILE");
     logger.Information("THIS WILL TEST FAN 1 (ONE) ONLY - ENSURE FAN PORT 1 IS CONNECTED");
 
-    var channelPowerRegistersToTest = Enumerable.Range(0, byte.MaxValue).Select(Convert.ToByte);
+    var channelPowerRegistersToTest = Enumerable.Range(0, byte.MaxValue + 1).Select(Convert.ToByte).ToList();
+    channelPowerRegistersToTest.Remove(0x02);
 
     device.SetChannelMode(0, 0x04); // manual
     await SetFan1ToZeroRpm();
