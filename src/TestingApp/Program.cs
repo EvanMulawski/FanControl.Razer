@@ -87,6 +87,7 @@ static async Task RunInvestigation(IRazerPwmFanController device, ILogger logger
                 logger.Information("PROBABLE");
             }
             await SetFan1ToZeroRpm();
+            device.SetChannelMode(0, channelMode);
         }
     }
 
