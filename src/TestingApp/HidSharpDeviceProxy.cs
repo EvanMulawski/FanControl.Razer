@@ -44,32 +44,7 @@ internal class HidSharpDeviceProxy
     {
         ThrowIfNotReady();
 
-        //ClearEnqueuedReports();
         _stream?.SetFeature(buffer, 0, buffer.Length);
-    }
-
-    public void ClearEnqueuedReports()
-    {
-        ThrowIfNotReady();
-
-        var originalReadTimeout = _stream!.ReadTimeout;
-        _stream.ReadTimeout = 1;
-
-        try
-        {
-            while (true)
-            {
-                _ = _stream.Read();
-            }
-        }
-        catch (TimeoutException)
-        {
-            // cleared!
-        }
-        finally
-        {
-            _stream.ReadTimeout = originalReadTimeout;
-        }
     }
 
     private void ThrowIfNotReady()
