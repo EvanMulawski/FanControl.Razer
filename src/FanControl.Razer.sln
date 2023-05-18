@@ -5,6 +5,18 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestingApp", "TestingApp\TestingApp.csproj", "{2422BD52-F8FD-4B46-8477-5DF28BB1A469}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "devices", "devices", "{4D35207E-718F-484B-9C25-A78505A97B84}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FanControl.Razer", "FanControl.Razer\FanControl.Razer.csproj", "{1ACDC5A2-7AA5-4246-9C80-B044BF2E51EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EMRazer", "EMRazer\EMRazer.csproj", "{A3D6B0AB-9C8B-4E0A-8230-5665915EA563}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EMRazer.Abstractions", "EMRazer.Abstractions\EMRazer.Abstractions.csproj", "{7E31F573-7412-4E2A-805F-88575C681E25}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EMRazer.Devices.PwmFanController", "devices\pwm_fan_controller\EMRazer.Devices.PwmFanController.csproj", "{7587FE33-1265-403A-B1A4-72A5F7992F4C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EMRazer.Synchronization", "EMRazer.Synchronization\EMRazer.Synchronization.csproj", "{C38C1F7C-2537-4860-B717-703A3A03AE32}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,8 +27,34 @@ Global
 		{2422BD52-F8FD-4B46-8477-5DF28BB1A469}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2422BD52-F8FD-4B46-8477-5DF28BB1A469}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2422BD52-F8FD-4B46-8477-5DF28BB1A469}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1ACDC5A2-7AA5-4246-9C80-B044BF2E51EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1ACDC5A2-7AA5-4246-9C80-B044BF2E51EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1ACDC5A2-7AA5-4246-9C80-B044BF2E51EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1ACDC5A2-7AA5-4246-9C80-B044BF2E51EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3D6B0AB-9C8B-4E0A-8230-5665915EA563}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3D6B0AB-9C8B-4E0A-8230-5665915EA563}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3D6B0AB-9C8B-4E0A-8230-5665915EA563}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3D6B0AB-9C8B-4E0A-8230-5665915EA563}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E31F573-7412-4E2A-805F-88575C681E25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E31F573-7412-4E2A-805F-88575C681E25}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E31F573-7412-4E2A-805F-88575C681E25}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E31F573-7412-4E2A-805F-88575C681E25}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7587FE33-1265-403A-B1A4-72A5F7992F4C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7587FE33-1265-403A-B1A4-72A5F7992F4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7587FE33-1265-403A-B1A4-72A5F7992F4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7587FE33-1265-403A-B1A4-72A5F7992F4C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C38C1F7C-2537-4860-B717-703A3A03AE32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C38C1F7C-2537-4860-B717-703A3A03AE32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C38C1F7C-2537-4860-B717-703A3A03AE32}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C38C1F7C-2537-4860-B717-703A3A03AE32}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7587FE33-1265-403A-B1A4-72A5F7992F4C} = {4D35207E-718F-484B-9C25-A78505A97B84}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {01ED5115-9F6C-401D-BEF7-1A38E6273359}
 	EndGlobalSection
 EndGlobal

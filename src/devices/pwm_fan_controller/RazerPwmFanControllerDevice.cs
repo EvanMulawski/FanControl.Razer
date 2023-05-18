@@ -1,0 +1,330 @@
+﻿using System.Buffers.Binary;
+
+namespace EMRazer.Devices.PwmFanController;
+
+public sealed class RazerPwmFanControllerDevice : IDevice
+{
+    public enum DeviceStatus : byte
+    {
+        Default = 0x00,
+        Busy = 0x01,
+        Success = 0x02,
+    }
+
+    public enum ProtocolType : byte
+    {
+        Default = 0x00,
+    }
+
+    public static class CommandClass
+    {
+        public static readonly byte Pwm = 0x0d;
+    }
+
+    public static class PwmCommand
+    {
+        public static readonly byte SetChannelPercent = 0x0d;
+        public static readonly byte SetChannelMode = 0x02;
+        public static readonly byte GetChannelSpeed = 0x81;
+    }
+
+    private const int DEFAULT_SPEED_CHANNEL_POWER = 50;
+    private const byte PERCENT_MIN = 0;
+    private const byte PERCENT_MAX = 100;
+    private const int DEVICE_READ_DELAY_MS = 10;
+    private const int DEVICE_READ_TIMEOUT_MS = 500;
+
+    private readonly IHidDeviceProxy _device;
+    private readonly IDeviceGuardManager _guardManager;
+    private readonly ILogger? _logger;
+    private readonly SequenceCounter _sequenceCounter = new();
+    private readonly uint _fanCount = 8;
+    private readonly SpeedChannelPowerTrackingStore _requestedChannelPower = new();
+    private readonly Dictionary<int, SpeedSensor> _speedSensors = new();
+    private readonly Dictionary<int, TemperatureSensor> _temperatureSensors = new();
+
+    public RazerPwmFanControllerDevice(IHidDeviceProxy device, IDeviceGuardManager guardManager, ILogger? logger)
+    {
+        _device = device;
+        _guardManager = guardManager;
+        _logger = logger;
+
+        var deviceInfo = device.GetDeviceInfo();
+        Name = $"{deviceInfo.ProductName} ({deviceInfo.SerialNumber})";
+        UniqueId = deviceInfo.DevicePath;
+    }
+
+    public string UniqueId { get; }
+
+    public string Name { get; }
+
+    public IReadOnlyCollection<SpeedSensor> SpeedSensors => _speedSensors.Values;
+
+    public IReadOnlyCollection<TemperatureSensor> TemperatureSensors => _temperatureSensors.Values;
+
+    private void Log(string message)
+    {
+        _logger?.Log($"{Name}: {message}");
+    }
+
+    public bool Connect()
+    {
+        Disconnect();
+
+        var (opened, exception) = _device.Open();
+        if (opened)
+        {
+            Initialize();
+            return true;
+        }
+
+        if (exception is not null)
+        {
+            Log(exception.ToString());
+        }
+
+        return false;
+    }
+
+    private void Initialize()
+    {
+        _requestedChannelPower.Clear();
+
+        for (var i = 0; i < _fanCount; i++)
+        {
+            SetChannelModeToManual(i);
+            SetChannelPower(i, DEFAULT_SPEED_CHANNEL_POWER);
+            _speedSensors[i] = new SpeedSensor($"Fan #{i + 1}", i, default, supportsControl: true);
+        }
+    }
+
+    public void Disconnect()
+    {
+        _device.Close();
+    }
+
+    public string GetFirmwareVersion()
+    {
+        return "TODO";
+    }
+
+    public void Refresh()
+    {
+        using (_guardManager.AwaitExclusiveAccess())
+        {
+            WriteRequestedSpeeds();
+            RefreshSpeeds();
+        }
+    }
+
+    private void RefreshSpeeds()
+    {
+        var sensors = GetSpeedSensors();
+
+        foreach (var sensor in sensors)
+        {
+            if (!_speedSensors.TryGetValue(sensor.Channel, out var existingSensor))
+            {
+                _speedSensors[sensor.Channel] = sensor;
+                continue;
+            }
+
+            existingSensor.Rpm = sensor.Rpm;
+        }
+    }
+
+    public int GetChannelSpeed(int channel)
+    {
+        Log(nameof(GetChannelSpeed));
+
+        var packet = new Packet
+        {
+            SequenceNumber = _sequenceCounter.Next(),
+            DataLength = 6,
+            CommandClass = CommandClass.Pwm,
+            Command = PwmCommand.GetChannelSpeed,
+        };
+
+        packet.Data[0] = 0x01;
+        packet.Data[1] = (byte)(0x05 + channel);
+
+        var response = WriteAndRead(packet);
+        var rpm = BinaryPrimitives.ReadInt16BigEndian(response.Data.AsSpan(5, 2));
+        return rpm;
+    }
+
+    public void SetChannelPower(int channel, int percent)
+    {
+        _requestedChannelPower[channel] = Utils.ToFractionalByte(Utils.Clamp(percent, PERCENT_MIN, PERCENT_MAX));
+    }
+
+    private void WriteRequestedSpeeds()
+    {
+        Log(nameof(WriteRequestedSpeeds));
+
+        for (var i = 0; i < _fanCount; i++)
+        {
+            var packet = new Packet
+            {
+                SequenceNumber = _sequenceCounter.Next(),
+                DataLength = 3,
+                CommandClass = CommandClass.Pwm,
+                Command = PwmCommand.SetChannelPercent,
+            };
+
+            packet.Data[0] = 0x01;
+            packet.Data[1] = (byte)(0x05 + i);
+            packet.Data[2] = _requestedChannelPower[i];
+
+            WriteAndRead(packet); 
+        }
+    }
+
+    private void SetChannelModeToManual(int channel)
+    {
+        Log(nameof(SetChannelModeToManual));
+
+        var packet = new Packet
+        {
+            SequenceNumber = _sequenceCounter.Next(),
+            DataLength = 3,
+            CommandClass = CommandClass.Pwm,
+            Command = PwmCommand.SetChannelMode,
+        };
+
+        packet.Data[0] = 0x01;
+        packet.Data[1] = (byte)(0x05 + channel);
+        packet.Data[2] = 0x04;
+
+        WriteAndRead(packet);
+    }
+
+    private Packet WriteAndRead(Packet packet)
+    {
+        var response = Packet.CreateBuffer();
+        var buffer = packet.ToBuffer();
+
+        Log($"WRITE: {buffer.ToHexString()}");
+        _device.WriteFeature(buffer);
+        Thread.Sleep(DEVICE_READ_DELAY_MS);
+        _device.ReadFeature(buffer);
+        Log($"READ:  {buffer.ToHexString()}");
+        var readPacket = Packet.FromBuffer(response);
+
+        if (readPacket.Status == DeviceStatus.Busy)
+        {
+            var cts = new CancellationTokenSource(DEVICE_READ_TIMEOUT_MS);
+
+            while (!cts.IsCancellationRequested && readPacket.Status == DeviceStatus.Busy)
+            {
+                Thread.Sleep(DEVICE_READ_DELAY_MS);
+                _device.ReadFeature(buffer);
+                Log($"READ:  {buffer.ToHexString()}");
+                readPacket = Packet.FromBuffer(response);
+            }
+
+            if (cts.IsCancellationRequested)
+            {
+                throw new RazerDeviceException("Wait expired for successful device status after write.");
+            }
+        }
+
+        if (readPacket.Status != DeviceStatus.Success)
+        {
+            throw new RazerDeviceException($"Device status not OK after write ({readPacket.Status}).");
+        }
+
+        return readPacket;
+    }
+
+    private IReadOnlyCollection<SpeedSensor> GetSpeedSensors()
+    {
+        var sensors = new List<SpeedSensor>();
+
+        for (var i = 0; i < _fanCount; i++)
+        {
+            var rpm = GetChannelSpeed(i);
+            sensors.Add(new SpeedSensor($"Fan #{i + 1}", i, rpm, supportsControl: true));
+        }
+
+        return sensors;
+    }
+
+    public sealed class Packet
+    {
+        public byte ReportId { get; set; }
+        public DeviceStatus Status { get; set; }
+        public byte SequenceNumber { get; set; }
+        public short RemainingCount { get; set; }
+        public ProtocolType ProtocolType { get; set; }
+        public byte DataLength { get; set; }
+        public byte CommandClass { get; set; }
+        public byte Command { get; set; }
+        public byte[] Data { get; } = new byte[80];
+        public byte CRC { get; set; }
+        public byte Reserved { get; set; }
+
+        public byte[] ToBuffer()
+        {
+            var buffer = CreateBuffer();
+            buffer[0] = ReportId;
+            buffer[1] = (byte)Status;
+            buffer[2] = SequenceNumber;
+            BinaryPrimitives.WriteInt16BigEndian(buffer.AsSpan(3), RemainingCount);
+            buffer[5] = (byte)ProtocolType;
+            buffer[6] = DataLength;
+            buffer[7] = CommandClass;
+            buffer[8] = Command;
+            Data.CopyTo(buffer.AsSpan(9, Data.Length));
+            buffer[89] = GenerateChecksum(buffer);
+            buffer[90] = Reserved;
+            return buffer;
+        }
+
+        public static Packet FromBuffer(ReadOnlySpan<byte> buffer)
+        {
+            var packet = new Packet
+            {
+                ReportId = buffer[0],
+                Status = (DeviceStatus)buffer[1],
+                SequenceNumber = buffer[2],
+                RemainingCount = BinaryPrimitives.ReadInt16BigEndian(buffer.Slice(3)),
+                ProtocolType = (ProtocolType)buffer[5],
+                DataLength = buffer[6],
+                CommandClass = buffer[7],
+                Command = buffer[8],
+                CRC = buffer[89],
+                Reserved = buffer[90]
+            };
+            buffer.Slice(9, packet.Data.Length).CopyTo(packet.Data);
+            return packet;
+        }
+
+        public static byte[] CreateBuffer() => new byte[91];
+
+        internal static byte GenerateChecksum(ReadOnlySpan<byte> buffer)
+        {
+            byte result = 0;
+            for (int i = 3; i < 89; i++)
+            {
+                result = (byte)(result ^ buffer[i]);
+            }
+            return result;
+        }
+    }
+
+    private sealed class SequenceCounter
+    {
+        private byte _sequenceId = 0x00;
+
+        public byte Next()
+        {
+            do
+            {
+                _sequenceId += 0x08;
+            }
+            while (_sequenceId == 0x00);
+            return _sequenceId;
+        }
+    }
+}

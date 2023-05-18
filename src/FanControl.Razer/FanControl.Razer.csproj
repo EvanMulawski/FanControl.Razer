@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>Latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="FanControl.Plugins">
+      <HintPath>..\..\ref\FanControl.Plugins.dll</HintPath>
+    </Reference>
+    <PackageReference Include="ILRepack.MSBuild.Task" Version="2.0.13" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EMRazer.Synchronization\EMRazer.Synchronization.csproj" />
+    <ProjectReference Include="..\EMRazer\EMRazer.csproj" />
+  </ItemGroup>
+
+  <Target Name="ILRepack" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <WorkingDirectory>$(MSBuildThisFileDirectory)bin\$(Configuration)\$(TargetFramework)</WorkingDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <InputAssemblies Include="EMRazer.dll" />
+      <InputAssemblies Include="EMRazer.Abstractions.dll" />
+      <InputAssemblies Include="EMRazer.Synchronization.dll" />
+      <InputAssemblies Include="EMRazer.Devices.PwmFanController.dll" />
+    </ItemGroup>
+    <ItemGroup>
+      <InternalizeExcludeAssemblies Include="FanControl.Plugins.dll" />
+      <InternalizeExcludeAssemblies Include="HidSharp.dll" />
+    </ItemGroup>
+    <Message Text="MERGING: @(InputAssemblies->'%(Filename)') into $(OutputAssembly)" Importance="High" />
+    <ILRepack OutputType="$(OutputType)" MainAssembly="$(AssemblyName).dll" OutputAssembly="$(AssemblyName).dll" InputAssemblies="@(InputAssemblies)" InternalizeExcludeAssemblies="@(InternalizeExcludeAssemblies)" WorkingDirectory="$(WorkingDirectory)" />
+  </Target>
+
+</Project>
