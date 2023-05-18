@@ -220,11 +220,11 @@ internal sealed class RazerPwmFanController : IRazerPwmFanController
         Read(response, description);
         var readPacket = Packet.FromBuffer(response);
 
-        if (readPacket.Status != DeviceStatus.Success)
+        if (readPacket.Status == DeviceStatus.Busy)
         {
             var cts = new CancellationTokenSource(500);
 
-            while (!cts.IsCancellationRequested && readPacket.Status != DeviceStatus.Success)
+            while (!cts.IsCancellationRequested && readPacket.Status == DeviceStatus.Busy)
             {
                 Thread.Sleep(50);
                 Read(response, description);
@@ -235,6 +235,11 @@ internal sealed class RazerPwmFanController : IRazerPwmFanController
             {
                 throw new Exception($"{description}: Wait expired for successful device status after write.");
             }
+        }
+
+        if (readPacket.Status != DeviceStatus.Success)
+        {
+            throw new Exception($"{description}: Device status not OK after write ({readPacket.Status}).");
         }
 
         return readPacket;

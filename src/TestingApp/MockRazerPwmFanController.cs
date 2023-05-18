@@ -40,7 +40,8 @@ internal sealed class MockRazerPwmFanController : IRazerPwmFanController
 
         _rpmToReturn = registerToSet switch
         {
-            0x01 => 1000,
+            0x01 => throw new Exception(),
+            0x05 => 1000,
             _ => 0,
         };
     }
