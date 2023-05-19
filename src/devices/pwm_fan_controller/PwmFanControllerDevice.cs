@@ -116,11 +116,6 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public string GetFirmwareVersion()
     {
-        return GetFirmwareVersionImpl();
-    }
-
-    private string GetFirmwareVersionImpl()
-    {
         var packet = new Packet
         {
             SequenceNumber = _sequenceCounter.Next(),
