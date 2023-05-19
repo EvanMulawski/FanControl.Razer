@@ -9,6 +9,7 @@ public sealed class PwmFanControllerDevice : IDevice
         Default = 0x00,
         Busy = 0x01,
         Success = 0x02,
+        Error = 0x03,
     }
 
     public enum ProtocolType : byte
@@ -18,6 +19,7 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public static class CommandClass
     {
+        public static readonly byte Info = 0x00;
         public static readonly byte Pwm = 0x0d;
     }
 
@@ -31,7 +33,7 @@ public sealed class PwmFanControllerDevice : IDevice
     private const int DEFAULT_SPEED_CHANNEL_POWER = 50;
     private const byte PERCENT_MIN = 0;
     private const byte PERCENT_MAX = 100;
-    private const int DEVICE_READ_DELAY_MS = 10;
+    private const int DEVICE_READ_DELAY_MS = 5;
     private const int DEVICE_READ_TIMEOUT_MS = 500;
 
     private readonly IHidDeviceProxy _device;
@@ -92,7 +94,11 @@ public sealed class PwmFanControllerDevice : IDevice
 
         for (var i = 0; i < _fanCount; i++)
         {
-            SetChannelModeToManual(i);
+            using (_guardManager.AwaitExclusiveAccess())
+            {
+                SetChannelModeToManual(i);
+            }
+
             SetChannelPower(i, DEFAULT_SPEED_CHANNEL_POWER);
             _speedSensors[i] = new SpeedSensor($"Fan #{i + 1}", i, default, supportsControl: true);
         }
@@ -105,7 +111,30 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public string GetFirmwareVersion()
     {
-        return "TODO";
+        try
+        {
+            using (_guardManager.AwaitExclusiveAccess())
+            {
+                var packet = new Packet
+                {
+                    SequenceNumber = _sequenceCounter.Next(),
+                    DataLength = 0,
+                    CommandClass = CommandClass.Info,
+                    Command = 0x81,
+                };
+
+                var response = WriteAndRead(packet);
+                var versionMajor = response.Data[0];
+                var versionMinor = response.Data[1];
+                return $"{versionMajor}.{versionMinor}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("Error retrieving firmware version.");
+            Log(ex.ToString());
+            return "ERROR";
+        }
     }
 
     public void Refresh()
@@ -147,11 +176,16 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public void SetChannelPower(int channel, int percent)
     {
-        _requestedChannelPower[channel] = Utils.ToFractionalByte(Utils.Clamp(percent, PERCENT_MIN, PERCENT_MAX));
+        _requestedChannelPower[channel] = (byte)Utils.Clamp(percent, PERCENT_MIN, PERCENT_MAX);
     }
 
     private void WriteRequestedSpeeds()
     {
+        if (!_requestedChannelPower.Dirty)
+        {
+            return;
+        }
+
         Log(nameof(WriteRequestedSpeeds));
 
         for (var i = 0; i < _fanCount; i++)
@@ -170,6 +204,8 @@ public sealed class PwmFanControllerDevice : IDevice
 
             WriteAndRead(packet); 
         }
+
+        _requestedChannelPower.ResetDirty();
     }
 
     private void SetChannelModeToManual(int channel)
