@@ -1,4 +1,6 @@
-﻿namespace EMRazer;
+﻿using System.Diagnostics;
+
+namespace EMRazer;
 
 public static class Utils
 {
@@ -35,4 +37,11 @@ public static class Utils
     }
 
     public static string ToHexString(this byte[] bytes) => ToHexString(bytes.AsSpan());
+
+    private const long TICKS_PER_MILLISECOND = 10000;
+    private const long TICKS_PER_SECOND = TICKS_PER_MILLISECOND * 1000;
+    private static readonly double _tickFrequency = (double)TICKS_PER_SECOND / Stopwatch.Frequency;
+
+    public static TimeSpan GetElapsedTime(long startTimestamp, long endTimestamp) =>
+        new((long)((endTimestamp - startTimestamp) * _tickFrequency));
 }

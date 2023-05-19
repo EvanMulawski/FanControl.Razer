@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Diagnostics;
 
 namespace EMRazer.Devices.PwmFanController;
 
@@ -35,15 +36,17 @@ public sealed class PwmFanControllerDevice : IDevice
     private const byte PERCENT_MAX = 100;
     private const int DEVICE_READ_DELAY_MS = 5;
     private const int DEVICE_READ_TIMEOUT_MS = 500;
-
+    private const int CHANNEL_COUNT = 8;
+    private const int FORCE_WRITE_SPEEDS_INTERVAL_MS = 2500;
     private readonly IHidDeviceProxy _device;
     private readonly IDeviceGuardManager _guardManager;
     private readonly ILogger? _logger;
     private readonly SequenceCounter _sequenceCounter = new();
-    private readonly uint _fanCount = 8;
     private readonly SpeedChannelPowerTrackingStore _requestedChannelPower = new();
     private readonly Dictionary<int, SpeedSensor> _speedSensors = new();
     private readonly Dictionary<int, TemperatureSensor> _temperatureSensors = new(0);
+
+    private long _lastSpeedWrite = 0L;
 
     public PwmFanControllerDevice(IHidDeviceProxy device, IDeviceGuardManager guardManager, ILogger? logger)
     {
@@ -92,7 +95,7 @@ public sealed class PwmFanControllerDevice : IDevice
     {
         _requestedChannelPower.Clear();
 
-        for (var i = 0; i < _fanCount; i++)
+        for (var i = 0; i < CHANNEL_COUNT; i++)
         {
             using (_guardManager.AwaitExclusiveAccess())
             {
@@ -148,7 +151,7 @@ public sealed class PwmFanControllerDevice : IDevice
 
     private void RefreshSpeeds()
     {
-        for (var i = 0; i < _fanCount; i++)
+        for (var i = 0; i < CHANNEL_COUNT; i++)
         {
             _speedSensors[i].Rpm = GetChannelSpeed(i);
         }
@@ -181,14 +184,14 @@ public sealed class PwmFanControllerDevice : IDevice
 
     private void WriteRequestedSpeeds()
     {
-        if (!_requestedChannelPower.Dirty)
+        if (!_requestedChannelPower.Dirty && !IsForceWriteRequestedSpeedsRequired())
         {
             return;
         }
 
         Log(nameof(WriteRequestedSpeeds));
 
-        for (var i = 0; i < _fanCount; i++)
+        for (var i = 0; i < CHANNEL_COUNT; i++)
         {
             var packet = new Packet
             {
@@ -205,7 +208,13 @@ public sealed class PwmFanControllerDevice : IDevice
             WriteAndRead(packet); 
         }
 
+        _lastSpeedWrite = Stopwatch.GetTimestamp();
         _requestedChannelPower.ResetDirty();
+    }
+
+    private bool IsForceWriteRequestedSpeedsRequired()
+    {
+        return Utils.GetElapsedTime(_lastSpeedWrite, Stopwatch.GetTimestamp()).TotalMilliseconds >= FORCE_WRITE_SPEEDS_INTERVAL_MS;
     }
 
     private void SetChannelModeToManual(int channel)
