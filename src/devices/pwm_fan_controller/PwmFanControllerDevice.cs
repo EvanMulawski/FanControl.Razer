@@ -114,29 +114,31 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public string GetFirmwareVersion()
     {
-        try
-        {
-            using (_guardManager.AwaitExclusiveAccess())
-            {
-                var packet = new Packet
-                {
-                    SequenceNumber = _sequenceCounter.Next(),
-                    DataLength = 0,
-                    CommandClass = CommandClass.Info,
-                    Command = 0x81,
-                };
+        var v1 = GetFirmwareVersionImpl(0x81);
 
-                var response = WriteAndRead(packet);
-                var versionMajor = response.Data[0];
-                var versionMinor = response.Data[1];
-                return $"{versionMajor}.{versionMinor}";
-            }
-        }
-        catch (Exception ex)
+        Log("FW VERSION TEST START");
+        var v2 = GetFirmwareVersionImpl(0x87);
+        Log("FW VERSION TEST END");
+
+        return v1;
+    }
+
+    private string GetFirmwareVersionImpl(byte command)
+    {
+        using (_guardManager.AwaitExclusiveAccess())
         {
-            Log("Error retrieving firmware version.");
-            Log(ex.ToString());
-            return "ERROR";
+            var packet = new Packet
+            {
+                SequenceNumber = _sequenceCounter.Next(),
+                DataLength = 0,
+                CommandClass = CommandClass.Info,
+                Command = command,
+            };
+
+            var response = WriteAndRead(packet);
+            var versionMajor = response.Data[0];
+            var versionMinor = response.Data[1];
+            return $"{versionMajor:D}.{versionMinor:D2}";
         }
     }
 
@@ -205,7 +207,7 @@ public sealed class PwmFanControllerDevice : IDevice
             packet.Data[1] = (byte)(0x05 + i);
             packet.Data[2] = _requestedChannelPower[i];
 
-            WriteAndRead(packet); 
+            WriteAndRead(packet);
         }
 
         _lastSpeedWrite = Stopwatch.GetTimestamp();
