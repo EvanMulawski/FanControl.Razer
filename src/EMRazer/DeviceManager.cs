@@ -8,20 +8,17 @@ public static class DeviceManager
 {
     public static IReadOnlyCollection<IDevice> GetSupportedDevices(IDeviceGuardManager deviceGuardManager, ILogger? logger)
     {
-        var razerDevices = DeviceList.Local
+        var collection = new List<IDevice>();
+
+        var devices = DeviceList.Local
             .GetHidDevices(vendorID: HardwareIds.RazerVendorId)
             .ToList();
-        logger?.LogDevices(razerDevices, "Razer device(s)");
+        logger?.LogDevices(devices, "Razer device(s)");
 
-        var supportedDevices = razerDevices
+        var supportedDevices = devices
             .Where(x => HardwareIds.SupportedProductIds.Contains(x.ProductID) && x.GetMaxFeatureReportLength() > 0)
             .ToList();
         logger?.LogDevices(supportedDevices, "supported Razer device(s)");
-
-        var supportedDevicesByProductId = supportedDevices
-            .ToLookup(x => x.ProductID);
-
-        var collection = new List<IDevice>();
 
         collection.AddRange(supportedDevices.InDeviceDriverGroup(HardwareIds.DeviceDriverGroups.PwmFanController)
             .Select(x => new PwmFanControllerDevice(new HidSharpDeviceProxy(x), deviceGuardManager, logger)));
