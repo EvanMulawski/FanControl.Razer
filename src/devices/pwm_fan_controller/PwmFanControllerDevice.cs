@@ -11,6 +11,8 @@ public sealed class PwmFanControllerDevice : IDevice
         Busy = 0x01,
         Success = 0x02,
         Error = 0x03,
+        Timeout = 0x04,
+        Invalid = 0x05,
     }
 
     public enum ProtocolType : byte
