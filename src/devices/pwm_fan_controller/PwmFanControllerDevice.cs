@@ -2,7 +2,7 @@
 
 namespace EMRazer.Devices.PwmFanController;
 
-public sealed class RazerPwmFanControllerDevice : IDevice
+public sealed class PwmFanControllerDevice : IDevice
 {
     public enum DeviceStatus : byte
     {
@@ -41,9 +41,9 @@ public sealed class RazerPwmFanControllerDevice : IDevice
     private readonly uint _fanCount = 8;
     private readonly SpeedChannelPowerTrackingStore _requestedChannelPower = new();
     private readonly Dictionary<int, SpeedSensor> _speedSensors = new();
-    private readonly Dictionary<int, TemperatureSensor> _temperatureSensors = new();
+    private readonly Dictionary<int, TemperatureSensor> _temperatureSensors = new(0);
 
-    public RazerPwmFanControllerDevice(IHidDeviceProxy device, IDeviceGuardManager guardManager, ILogger? logger)
+    public PwmFanControllerDevice(IHidDeviceProxy device, IDeviceGuardManager guardManager, ILogger? logger)
     {
         _device = device;
         _guardManager = guardManager;
@@ -119,17 +119,9 @@ public sealed class RazerPwmFanControllerDevice : IDevice
 
     private void RefreshSpeeds()
     {
-        var sensors = GetSpeedSensors();
-
-        foreach (var sensor in sensors)
+        for (var i = 0; i < _fanCount; i++)
         {
-            if (!_speedSensors.TryGetValue(sensor.Channel, out var existingSensor))
-            {
-                _speedSensors[sensor.Channel] = sensor;
-                continue;
-            }
-
-            existingSensor.Rpm = sensor.Rpm;
+            _speedSensors[i].Rpm = GetChannelSpeed(i);
         }
     }
 
@@ -149,7 +141,7 @@ public sealed class RazerPwmFanControllerDevice : IDevice
         packet.Data[1] = (byte)(0x05 + channel);
 
         var response = WriteAndRead(packet);
-        var rpm = BinaryPrimitives.ReadInt16BigEndian(response.Data.AsSpan(5, 2));
+        var rpm = BinaryPrimitives.ReadInt16BigEndian(response.Data.AsSpan(4, 2));
         return rpm;
     }
 
@@ -207,8 +199,8 @@ public sealed class RazerPwmFanControllerDevice : IDevice
         Log($"WRITE: {buffer.ToHexString()}");
         _device.WriteFeature(buffer);
         Thread.Sleep(DEVICE_READ_DELAY_MS);
-        _device.ReadFeature(buffer);
-        Log($"READ:  {buffer.ToHexString()}");
+        _device.ReadFeature(response);
+        Log($"READ:  {response.ToHexString()}");
         var readPacket = Packet.FromBuffer(response);
 
         if (readPacket.Status == DeviceStatus.Busy)
@@ -218,8 +210,8 @@ public sealed class RazerPwmFanControllerDevice : IDevice
             while (!cts.IsCancellationRequested && readPacket.Status == DeviceStatus.Busy)
             {
                 Thread.Sleep(DEVICE_READ_DELAY_MS);
-                _device.ReadFeature(buffer);
-                Log($"READ:  {buffer.ToHexString()}");
+                _device.ReadFeature(response);
+                Log($"READ:  {response.ToHexString()}");
                 readPacket = Packet.FromBuffer(response);
             }
 
@@ -235,19 +227,6 @@ public sealed class RazerPwmFanControllerDevice : IDevice
         }
 
         return readPacket;
-    }
-
-    private IReadOnlyCollection<SpeedSensor> GetSpeedSensors()
-    {
-        var sensors = new List<SpeedSensor>();
-
-        for (var i = 0; i < _fanCount; i++)
-        {
-            var rpm = GetChannelSpeed(i);
-            sensors.Add(new SpeedSensor($"Fan #{i + 1}", i, rpm, supportsControl: true));
-        }
-
-        return sensors;
     }
 
     public sealed class Packet

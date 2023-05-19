@@ -24,7 +24,7 @@ public static class DeviceManager
         var collection = new List<IDevice>();
 
         collection.AddRange(supportedDevices.InDeviceDriverGroup(HardwareIds.DeviceDriverGroups.PwmFanController)
-            .Select(x => new RazerPwmFanControllerDevice(new HidSharpDeviceProxy(x), deviceGuardManager, logger)));
+            .Select(x => new PwmFanControllerDevice(new HidSharpDeviceProxy(x), deviceGuardManager, logger)));
 
         return collection;
     }
