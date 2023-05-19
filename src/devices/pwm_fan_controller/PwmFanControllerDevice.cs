@@ -114,32 +114,30 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public string GetFirmwareVersion()
     {
-        var v1 = GetFirmwareVersionImpl(0x81);
-
-        Log("FW VERSION TEST START");
-        var v2 = GetFirmwareVersionImpl(0x87);
-        Log("FW VERSION TEST END");
-
-        return v1;
+        return GetFirmwareVersionImpl();
     }
 
-    private string GetFirmwareVersionImpl(byte command)
+    private string GetFirmwareVersionImpl()
     {
+        var packet = new Packet
+        {
+            SequenceNumber = _sequenceCounter.Next(),
+            DataLength = 0,
+            CommandClass = CommandClass.Info,
+            Command = 0x87,
+            //Command = 0x81,
+        };
+
+        Packet response;
         using (_guardManager.AwaitExclusiveAccess())
         {
-            var packet = new Packet
-            {
-                SequenceNumber = _sequenceCounter.Next(),
-                DataLength = 0,
-                CommandClass = CommandClass.Info,
-                Command = command,
-            };
-
-            var response = WriteAndRead(packet);
-            var versionMajor = response.Data[0];
-            var versionMinor = response.Data[1];
-            return $"{versionMajor:D}.{versionMinor:D2}";
+            response = WriteAndRead(packet);
         }
+
+        var v1 = response.Data[0];
+        var v2 = response.Data[1];
+        var v3 = response.Data[2];
+        return $"{v1:D}.{v2:D2}.{v3:D2}";
     }
 
     public void Refresh()
