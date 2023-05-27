@@ -40,6 +40,7 @@ public sealed class PwmFanControllerDevice : IDevice
     private const int DEVICE_READ_TIMEOUT_MS = 500;
     private const int CHANNEL_COUNT = 8;
     private const int FORCE_WRITE_SPEEDS_INTERVAL_MS = 2500;
+
     private readonly IHidDeviceProxy _device;
     private readonly IDeviceGuardManager _guardManager;
     private readonly ILogger? _logger;
@@ -122,7 +123,7 @@ public sealed class PwmFanControllerDevice : IDevice
             DataLength = 0,
             CommandClass = CommandClass.Info,
             Command = 0x87,
-            //Command = 0x81,
+            //Command = 0x81, // not sure which one to use
         };
 
         Packet response;
@@ -133,7 +134,7 @@ public sealed class PwmFanControllerDevice : IDevice
 
         var v1 = response.Data[0];
         var v2 = response.Data[1];
-        var v3 = response.Data[2];
+        var v3 = response.Data[2]; // might not be populated
         return $"{v1:D}.{v2:D2}.{v3:D2}";
     }
 
@@ -266,6 +267,11 @@ public sealed class PwmFanControllerDevice : IDevice
         if (readPacket.Status != DeviceStatus.Success)
         {
             throw new RazerDeviceException($"Device status not OK after write ({readPacket.Status}).");
+        }
+
+        if (readPacket.SequenceNumber != packet.SequenceNumber)
+        {
+            throw new RazerDeviceException($"Device responded with unexpected sequence number after write ({readPacket.SequenceNumber}).");
         }
 
         return readPacket;
