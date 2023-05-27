@@ -7,11 +7,15 @@ The unofficial Razer plugin for [Fan Control](https://github.com/Rem0o/FanContro
 
 ## Device Support
 
-| Device             | PID    | Status | Read Fan/Pump RPM | Set Fan/Pump Power | Read Temp Sensor |
-| ------------------ | ------ | ------ | ----------------- | ------------------ | ---------------- |
-| PWM Fan Controller | `0f3c` |        |                   |                    |                  |
+| Device             | PID    | Status       | Read Fan/Pump RPM | Set Fan/Pump Power | Read Temp Sensor |
+| ------------------ | ------ | ------------ | ----------------- | ------------------ | ---------------- |
+| PWM Fan Controller | `0f3c` | Full Support | ✅                | ✅ <sup>1</sup>    | n/a              |
+
+1. The device appears to set a fan to full speed at 85%+. Users must take this into consideration when building a fan curve. Please provide feedback using Discussions and include the fan model(s).
 
 ## Installation
+
+⚠ This plugin will not function correctly if Razer Synapse is running. This software should be stopped before running Fan Control. Running other programs that attempt to communicate with these devices while Fan Control is running is not currently a supported scenario.
 
 ⚠ This plugin requires the .NET Framework build of Fan Control. Install Fan Control using the `FanControl_net_4_8.zip` release files.
 
@@ -20,3 +24,7 @@ The unofficial Razer plugin for [Fan Control](https://github.com/Rem0o/FanContro
 3. Exit Fan Control.
 4. Copy `FanControl.Razer.dll` to the Fan Control `Plugins` directory.
 5. Start Fan Control.
+
+## Interoperability
+
+This plugin implements a non-standard global mutex (`Global\RazerReadWriteGuardMutex`) to synchronize device communication.
