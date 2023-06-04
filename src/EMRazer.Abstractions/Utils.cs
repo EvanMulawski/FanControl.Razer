@@ -44,4 +44,14 @@ public static class Utils
 
     public static TimeSpan GetElapsedTime(long startTimestamp, long endTimestamp) =>
         new((long)((endTimestamp - startTimestamp) * _tickFrequency));
+
+    public static bool GetEnvironmentFlag(string flagName)
+    {
+        var variableValue = Environment.GetEnvironmentVariable(flagName);
+        if (string.IsNullOrEmpty(variableValue))
+        {
+            variableValue = Environment.GetEnvironmentVariable(flagName, EnvironmentVariableTarget.Machine);
+        }
+        return !string.IsNullOrEmpty(variableValue) && (variableValue.ToLower() == "true" || variableValue == "1");
+    }
 }

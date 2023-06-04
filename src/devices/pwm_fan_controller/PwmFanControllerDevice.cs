@@ -70,10 +70,9 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public IReadOnlyCollection<TemperatureSensor> TemperatureSensors => _temperatureSensors.Values;
 
-    private void Log(string message)
-    {
-        _logger?.Log($"{Name}: {message}");
-    }
+    private void LogNormal(string message) => _logger?.Normal(Name, message);
+    private void LogError(string message) => _logger?.Error(Name, message);
+    private void LogDebug(string message) => _logger?.Debug(Name, message);
 
     public bool Connect()
     {
@@ -88,7 +87,7 @@ public sealed class PwmFanControllerDevice : IDevice
 
         if (exception is not null)
         {
-            Log(exception.ToString());
+            LogError(exception.ToString());
         }
 
         return false;
@@ -157,7 +156,7 @@ public sealed class PwmFanControllerDevice : IDevice
 
     public int GetChannelSpeed(int channel)
     {
-        Log(nameof(GetChannelSpeed));
+        LogDebug(nameof(GetChannelSpeed));
 
         var packet = new Packet
         {
@@ -187,7 +186,7 @@ public sealed class PwmFanControllerDevice : IDevice
             return;
         }
 
-        Log(nameof(WriteRequestedSpeeds));
+        LogDebug(nameof(WriteRequestedSpeeds));
 
         for (var i = 0; i < CHANNEL_COUNT; i++)
         {
@@ -217,7 +216,7 @@ public sealed class PwmFanControllerDevice : IDevice
 
     private void SetChannelModeToManual(int channel)
     {
-        Log(nameof(SetChannelModeToManual));
+        LogDebug(nameof(SetChannelModeToManual));
 
         var packet = new Packet
         {
@@ -239,11 +238,11 @@ public sealed class PwmFanControllerDevice : IDevice
         var response = Packet.CreateBuffer();
         var buffer = packet.ToBuffer();
 
-        Log($"WRITE: {buffer.ToHexString()}");
+        LogDebug($"WRITE: {buffer.ToHexString()}");
         _device.WriteFeature(buffer);
         Thread.Sleep(DEVICE_READ_DELAY_MS);
         _device.ReadFeature(response);
-        Log($"READ:  {response.ToHexString()}");
+        LogDebug($"READ:  {response.ToHexString()}");
         var readPacket = Packet.FromBuffer(response);
 
         if (readPacket.Status == DeviceStatus.Busy)
@@ -254,7 +253,7 @@ public sealed class PwmFanControllerDevice : IDevice
             {
                 Thread.Sleep(DEVICE_READ_DELAY_MS);
                 _device.ReadFeature(response);
-                Log($"READ:  {response.ToHexString()}");
+                LogDebug($"READ:  {response.ToHexString()}");
                 readPacket = Packet.FromBuffer(response);
             }
 
