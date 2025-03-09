@@ -1,3 +1,6 @@
+> [!CAUTION]
+> This project is no longer under active development. Support for the Razer PWM PC Fan Controller device is included in recent versions of LibreHardwareMonitor and Fan Control. This plugin is no longer needed.
+
 # Razer plugin for Fan Control
 
 The unofficial Razer plugin for [Fan Control](https://github.com/Rem0o/FanControl.Releases).
